@@ -73,10 +73,10 @@ if uploaded_zip:
 
                     try:
                         date_parsed = pd.to_datetime(row.get(date_col))
+                        formatted_date = date_parsed.strftime("%d-%b").upper()
                     except Exception:
-                        continue
+                        continue  # skip row if date parsing fails
 
-                    formatted_date = date_parsed.strftime("%d-%b").upper()
                     support = "YES" if support_text == "on call - needed engineer support" else "NO"
 
                     if reg.startswith("SP-L"):
@@ -100,21 +100,25 @@ if uploaded_zip:
                             "TECH SUPT.  YES/NO": support
                         })
 
-        # Convert to DataFrames and sort
-        lot_df = pd.DataFrame(lot_rows).sort_values("DATE_SORT")
-        rj_df = pd.DataFrame(rj_rows).sort_values("DATE_SORT")
+        # Create DataFrames
+        lot_df = pd.DataFrame(lot_rows)
+        rj_df = pd.DataFrame(rj_rows)
 
-        # Drop helper sort column
-        lot_df.drop(columns=["DATE_SORT"], inplace=True)
-        rj_df.drop(columns=["DATE_SORT"], inplace=True)
+        # Sort and drop helper column if it exists
+        if not lot_df.empty and "DATE_SORT" in lot_df.columns:
+            lot_df = lot_df.sort_values("DATE_SORT").drop(columns=["DATE_SORT"])
+        if not rj_df.empty and "DATE_SORT" in rj_df.columns:
+            rj_df = rj_df.sort_values("DATE_SORT").drop(columns=["DATE_SORT"])
 
-        # Save to Excel in memory
+        # Write to Excel
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-            lot_df.to_excel(writer, sheet_name=f"LOT_{sheet_suffix}", index=False)
-            rj_df.to_excel(writer, sheet_name=f"RJ_{sheet_suffix}", index=False)
+            if not lot_df.empty:
+                lot_df.to_excel(writer, sheet_name=f"LOT_{sheet_suffix}", index=False)
+            if not rj_df.empty:
+                rj_df.to_excel(writer, sheet_name=f"RJ_{sheet_suffix}", index=False)
         output.seek(0)
 
-    # Now show the download button only after processing
+    # Final success message and download button
     st.success("Report is ready!")
     st.download_button("Download Excel File", output.getvalue(), file_name="Aircraft_Support_Report.xlsx")
